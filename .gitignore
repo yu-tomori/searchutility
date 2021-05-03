@@ -1,2 +1,6 @@
 .env
 search
+*.png
+*.jpg
+*.jpeg
+*.gif

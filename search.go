@@ -6,9 +6,11 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/sclevine/agouti"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 )
@@ -34,6 +36,12 @@ type Item struct {
 	Description string `json:"snippet"`
 }
 
+func (r GSEResponse) urlProcessor() {
+	for _, item := range r.Items {
+		crowlAndShot(item.Link)
+	}
+}
+
 func (r GSEResponse) Printer() {
 	bytes, err := json.MarshalIndent(r, "", "	")
 	if err != nil {
@@ -52,6 +60,26 @@ func wordsParser(words string) (result string) {
 		result += w
 	}
 	return result
+}
+
+func crowlAndShot(urlstring string) {
+	fmt.Println(urlstring)
+	agoutiDriver := agouti.ChromeDriver()
+	agoutiDriver.Start()
+	defer agoutiDriver.Stop()
+	page, _ := agoutiDriver.NewPage()
+
+	page.Navigate(urlstring)
+
+	u, err := url.Parse(urlstring)
+	if err != nil {
+		panic(err)
+	}
+
+	filename := "./" + u.Host + ".png"
+	if err := page.Screenshot(filename); err != nil {
+		panic(err)
+	}
 }
 
 func main() {
@@ -101,4 +129,5 @@ func main() {
 		panic(err)
 	}
 	responds.Printer()
+	responds.urlProcessor()
 }
