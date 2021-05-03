@@ -4,3 +4,5 @@ search
 *.jpg
 *.jpeg
 *.gif
+credentials.json
+token.json
