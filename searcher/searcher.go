@@ -17,6 +17,7 @@ import (
 	. "github.com/yugaraxy/searchutility"
 	"github.com/yugaraxy/searchutility/crowler"
 	"github.com/yugaraxy/searchutility/gauth"
+	"github.com/yugaraxy/searchutility/mediainfo"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/sheets/v4"
 )
@@ -45,6 +46,13 @@ type Item struct {
 	Description string `json:"snippet"`
 }
 
+func (i Item) describeDomain() Item {
+	if mi, ok := mediainfo.MediaMap[i.Domain]; ok {
+		i.Domain = mi.String()
+	}
+	return i
+}
+
 func newGSEResponse(words string) *GSEResponse {
 	ws := stringSlicer(words)
 	r := new(GSEResponse)
@@ -71,6 +79,12 @@ func (r GSEResponse) Printer() {
 		os.Exit(0)
 	}
 	fmt.Println(string(bytes))
+}
+
+func (r *GSEResponse) describeDomains() {
+	for i, _ := range r.Items {
+		r.Items[i] = r.Items[i].describeDomain()
+	}
 }
 
 func wordsParser(words string) (result string) {
@@ -116,15 +130,11 @@ func gSearcher(num, start int, words string, workers chan<- *GSEResponse, startT
 		panic(err)
 	}
 
-	for i, item := range responds.Items {
-		item.Rank = i + 1
-		item.SearchWords = stringSlicer(words)
-		responds.Items[i] = item
-	}
+	responds.describeDomains()
 	workers <- responds
 }
 
-var cellFormatter string = `No.%d: %s
+var cellFormatter string = `%s
 %s
 %s
 %s
@@ -144,7 +154,7 @@ func gWriter(workers <-chan *GSEResponse) {
 		r := <-workers
 		for i, item := range r.Items {
 			input := fmt.Sprintf(cellFormatter,
-				item.Rank, item.Domain, item.Link, item.Title, item.Description)
+				item.Domain, item.Link, item.Title, item.Description)
 			mu.Lock()
 			if len(valueRange.Values[cellCounter]) > i+6 {
 				valueRange.Values[cellCounter][i+6] = input

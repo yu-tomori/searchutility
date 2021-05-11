@@ -8,11 +8,13 @@ import (
 	"fmt"
 	. "github.com/yugaraxy/searchutility"
 	"github.com/yugaraxy/searchutility/gauth"
+	"github.com/yugaraxy/searchutility/mediainfo"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/sheets/v4"
 	"io/ioutil"
 	"log"
 	"os"
+	"strconv"
 )
 
 var (
@@ -25,7 +27,43 @@ var (
 	endRow   = flag.Int("end", 10, "read media info ended by Nth row in spreadsheet")
 )
 
+func valueRangeConvert(vr *sheets.ValueRange) map[string]mediainfo.MediaInfo {
+	mimap := make(map[string]mediainfo.MediaInfo, *endRow-*startRow+1)
+
+	// row[0]		row[1]		row[2]		row[3]
+	// ドメイン		メディア名	DR			UU
+	for _, row := range vr.Values {
+		var dr, uu float64
+
+		if row[2].(string) != "" {
+			var err error
+			dr, err = strconv.ParseFloat(row[2].(string), 64)
+			if err != nil {
+				dr = float64(0)
+			}
+		}
+
+		if row[3].(string) != "" {
+			var err error
+			uu, err = strconv.ParseFloat(row[3].(string), 64)
+			if err != nil {
+				uu = float64(0)
+			}
+		}
+
+		mimap[row[0].(string)] = mediainfo.MediaInfo{
+			Name:       row[1].(string),
+			DomainRank: dr,
+			UniqueUser: uu,
+		}
+	}
+
+	return mimap
+}
+
 func init() {
+	fmt.Println("initializing...")
+	log.SetOutput(os.Stdout)
 	flag.Parse()
 	readRange = fmt.Sprintf("メディアの基本情報!E%d:H%d", *startRow, *endRow)
 
@@ -57,6 +95,7 @@ func init() {
 }
 
 func main() {
+	fmt.Println("executed...")
 	f := "mediainfo.json"
 
 	// if mediainfo.json exists, remove it.
@@ -73,7 +112,7 @@ func main() {
 	}
 	defer file.Close()
 
-	b, err := json.MarshalIndent(*valueRange, "", "\t")
+	b, err := json.MarshalIndent(valueRangeConvert(valueRange), "", "\t")
 	if err != nil {
 		panic(err)
 	}
