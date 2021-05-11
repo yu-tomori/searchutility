@@ -13,7 +13,7 @@ type MediaInfo struct {
 }
 
 func (mi MediaInfo) String() string {
-	return fmt.Sprintf("DR:%.1f ,UU:%.1f\n%s",
+	return fmt.Sprintf("DR:%.1f, UU:%.1f\n%s",
 		mi.DomainRank, mi.UniqueUser, mi.Name)
 }
 
