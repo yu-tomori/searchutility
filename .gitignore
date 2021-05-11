@@ -1,9 +1,14 @@
 .env
 secrets.go
+
 search
+genmi
+
 *.png
 *.jpg
 *.jpeg
 *.gif
 credentials.json
 token.json
+mediainfo.json
+

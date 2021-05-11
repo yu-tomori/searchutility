@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	. "github.com/yugaraxy/searchutility"
 	"github.com/yugaraxy/searchutility/crowler"
@@ -29,10 +30,6 @@ var (
 
 	startRow = flag.Int("start", 8, "search words started from Nth row in spreadsheet")
 	endRow   = flag.Int("end", 10, "search words ended by Nth row in spreadsheet")
-)
-
-const (
-	SHEET_ID string = "1dpn2o9mKRCEZBh8avTn41d1BD9br-ryY6BZyfguDv4A"
 )
 
 type GSEResponse struct {
@@ -91,7 +88,7 @@ func stringSlicer(words string) (result []string) {
 	return strings.Split(words, ",")
 }
 
-func gSearcher(num, start int, words string, workers chan<- *GSEResponse) {
+func gSearcher(num, start int, words string, workers chan<- *GSEResponse, startTime time.Time) {
 	num_of_results_param := "&num=" + strconv.Itoa(num)
 	start_param := "&start=" + strconv.Itoa(start)
 	lang_ja_param := "&lr=lang_ja"
@@ -101,6 +98,7 @@ func gSearcher(num, start int, words string, workers chan<- *GSEResponse) {
 		q_param + lang_ja_param +
 		num_of_results_param + start_param
 
+	fmt.Printf("%dms elapsed...", time.Now().Sub(startTime).Milliseconds())
 	resp, err := http.Get(url)
 	if err != nil {
 		panic(err)
@@ -145,11 +143,6 @@ func gWriter(workers <-chan *GSEResponse) {
 		fmt.Println("\nwait workers in gWriter")
 		r := <-workers
 		for i, item := range r.Items {
-			// input := "Rank: " + string(item.Rank) + "\n" +
-			// 	"Domain: " + item.Domain + "\n" +
-			// 	"Link: " + item.Link + "\n" +
-			// 	"Title: " + item.Title + "\n" +
-			// 	"Description: " + item.Description + "\n"
 			input := fmt.Sprintf(cellFormatter,
 				item.Rank, item.Domain, item.Link, item.Title, item.Description)
 			mu.Lock()
@@ -177,7 +170,6 @@ func gWriter(workers <-chan *GSEResponse) {
 func init() {
 	flag.Parse()
 	readRange = fmt.Sprintf("キーワード選定!B%d:Q%d", *startRow, *endRow)
-	fmt.Printf("debug: キーワード選定!B%d:Q%d\n", *startRow, *endRow)
 
 	b, err := ioutil.ReadFile("credentials.json")
 	if err != nil {
@@ -208,13 +200,18 @@ func init() {
 
 func main() {
 	workers := make(chan *GSEResponse, 5)
-	go func() {
+	startTime := time.Now()
+	go func(t time.Time) {
 		for _, row := range valueRange.Values {
+			if row[0].(string) == "" { // skip empty row
+				continue
+			}
 			// row[0]:  B (search words)
 			// row[15]: Q
-			gSearcher(10, 1, row[0].(string), workers)
+			gSearcher(10, 1, row[0].(string), workers, t)
 		}
 		close(workers)
-	}()
+	}(startTime)
+
 	gWriter(workers)
 }
